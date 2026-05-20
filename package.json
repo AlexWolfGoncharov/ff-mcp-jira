@@ -4,7 +4,7 @@
   "description": "Reliable Jira MCP server (Server/DC & Atlassian Cloud). 23 tools, full label/transition/worklog/link/watcher/attach support, body-in-error reporting, fields trimming, retries.",
   "type": "module",
   "bin": {
-    "ff-mcp-jira": "./server.js"
+    "ff-mcp-jira": "server.js"
   },
   "main": "./server.js",
   "engines": {
