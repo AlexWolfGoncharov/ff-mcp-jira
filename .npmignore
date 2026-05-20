@@ -1,0 +1,9 @@
+node_modules
+package-lock.json
+smoke.js
+_demo_*.js
+.env
+.env.local
+*.bak
+*.bak-*
+.DS_Store

@@ -1,0 +1,52 @@
+{
+  "name": "ff-mcp-jira",
+  "version": "1.0.0",
+  "description": "Reliable Jira MCP server (Server/DC & Atlassian Cloud). 23 tools, full label/transition/worklog/link/watcher/attach support, body-in-error reporting, fields trimming, retries.",
+  "type": "module",
+  "bin": {
+    "ff-mcp-jira": "./server.js"
+  },
+  "main": "./server.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "smoke": "node smoke.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^3.23.8"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "jira",
+    "atlassian",
+    "jira-server",
+    "jira-cloud",
+    "jira-data-center",
+    "claude",
+    "claude-desktop",
+    "anthropic"
+  ],
+  "license": "MIT",
+  "author": "Oleksandr Honcharov <oleksandr.honcharov@fintech-farm.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AlexWolfGoncharov/ff-mcp-jira.git"
+  },
+  "homepage": "https://github.com/AlexWolfGoncharov/ff-mcp-jira#readme",
+  "bugs": {
+    "url": "https://github.com/AlexWolfGoncharov/ff-mcp-jira/issues"
+  },
+  "files": [
+    "server.js",
+    "README.md",
+    "LICENSE",
+    ".env.example"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}
