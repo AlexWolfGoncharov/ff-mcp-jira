@@ -4,8 +4,8 @@
   "name": "ff-mcp-jira",
   "display_name": "Jira (ff-mcp-jira)",
   "version": "1.1.0",
-  "description": "Reliable Jira MCP server for Jira Server/DC & Atlassian Cloud — 37 tools.",
-  "long_description": "A reliable Model Context Protocol server for Jira Server / Data Center / Atlassian Cloud. 37 tools covering issues, labels, transitions, comments, worklog, links, remote links, watchers, attachments, user & assignable search, field/create/edit metadata discovery, and agile boards/sprints. Auto-detects Cloud vs Server auth (Basic vs Bearer PAT), wraps text to ADF on Cloud v3, surfaces full Jira error bodies, trims search fields, and retries on 429/5xx.",
+  "description": "Connects Claude to Fintech Farm Jira (https://jira.fintech-farm.com, also Atlassian Cloud). 37 tools: JQL search, issue create/update/delete, labels, transitions, comments, assignment, subtasks, issue & remote links, watchers, worklogs, sprints/boards, field & create metadata, user search, attachments, raw API.",
+  "long_description": "Connects Claude Desktop to Fintech Farm Jira (Server/DC at https://jira.fintech-farm.com, also compatible with Atlassian Cloud). Supports JQL search, issue create/update/delete, labels, transitions, comments (add/edit/delete), assignment, subtasks, issue links and remote links, watchers, worklogs, projects, issue types, field/create/edit metadata discovery, user and assignable-user search, agile boards and sprints (including move-to-sprint), attachments and raw API requests.\n\nTo get an API token: open https://jira.fintech-farm.com/secure/ViewProfile.jspa?selectedTab=com.atlassian.pats.pats-plugin:jira-user-personal-access-tokens, click \"Create token\", and copy it immediately.\n\nDeveloped by Oleksandr Honcharov.",
   "author": {
     "name": "Oleksandr Honcharov",
     "email": "oleksandr.honcharov@fintech-farm.com"
@@ -36,13 +36,14 @@
     "jira_base_url": {
       "type": "string",
       "title": "Jira base URL",
-      "description": "e.g. https://jira.example.com or https://you.atlassian.net",
+      "description": "Fintech Farm Jira. For Atlassian Cloud use https://your-site.atlassian.net",
+      "default": "https://jira.fintech-farm.com",
       "required": true
     },
     "jira_api_token": {
       "type": "string",
       "title": "API token / Personal Access Token",
-      "description": "PAT for Jira Server/DC, or API token for Atlassian Cloud",
+      "description": "Create at jira.fintech-farm.com → Profile → Personal Access Tokens → Create token, then copy it immediately. (On Atlassian Cloud, use an API token instead.)",
       "required": true,
       "sensitive": true
     },
