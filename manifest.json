@@ -93,6 +93,7 @@
     {"name": "jira_raw_request"}
   ],
   "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
     "runtimes": {
       "node": ">=20"
     }
