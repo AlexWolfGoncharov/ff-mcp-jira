@@ -1,0 +1,100 @@
+{
+  "$schema": "https://raw.githubusercontent.com/anthropics/mcpb/main/dist/mcpb-manifest-v0.3.schema.json",
+  "manifest_version": "0.3",
+  "name": "ff-mcp-jira",
+  "display_name": "Jira (ff-mcp-jira)",
+  "version": "1.1.0",
+  "description": "Reliable Jira MCP server for Jira Server/DC & Atlassian Cloud — 37 tools.",
+  "long_description": "A reliable Model Context Protocol server for Jira Server / Data Center / Atlassian Cloud. 37 tools covering issues, labels, transitions, comments, worklog, links, remote links, watchers, attachments, user & assignable search, field/create/edit metadata discovery, and agile boards/sprints. Auto-detects Cloud vs Server auth (Basic vs Bearer PAT), wraps text to ADF on Cloud v3, surfaces full Jira error bodies, trims search fields, and retries on 429/5xx.",
+  "author": {
+    "name": "Oleksandr Honcharov",
+    "email": "oleksandr.honcharov@fintech-farm.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AlexWolfGoncharov/ff-mcp-jira.git"
+  },
+  "homepage": "https://github.com/AlexWolfGoncharov/ff-mcp-jira#readme",
+  "documentation": "https://github.com/AlexWolfGoncharov/ff-mcp-jira#readme",
+  "support": "https://github.com/AlexWolfGoncharov/ff-mcp-jira/issues",
+  "license": "MIT",
+  "keywords": ["jira", "atlassian", "jira-server", "jira-cloud", "jira-data-center"],
+  "server": {
+    "type": "node",
+    "entry_point": "server.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server.js"],
+      "env": {
+        "JIRA_BASE_URL": "${user_config.jira_base_url}",
+        "JIRA_API_TOKEN": "${user_config.jira_api_token}",
+        "JIRA_EMAIL": "${user_config.jira_email}"
+      }
+    }
+  },
+  "user_config": {
+    "jira_base_url": {
+      "type": "string",
+      "title": "Jira base URL",
+      "description": "e.g. https://jira.example.com or https://you.atlassian.net",
+      "required": true
+    },
+    "jira_api_token": {
+      "type": "string",
+      "title": "API token / Personal Access Token",
+      "description": "PAT for Jira Server/DC, or API token for Atlassian Cloud",
+      "required": true,
+      "sensitive": true
+    },
+    "jira_email": {
+      "type": "string",
+      "title": "Account email (Cloud only)",
+      "description": "Required for Atlassian Cloud (Basic auth); leave blank for Server/DC",
+      "required": false
+    }
+  },
+  "tools": [
+    {"name": "jira_get_myself"},
+    {"name": "jira_find_users"},
+    {"name": "jira_find_assignable_users"},
+    {"name": "jira_search"},
+    {"name": "jira_get_issue"},
+    {"name": "jira_create_issue"},
+    {"name": "jira_update_issue"},
+    {"name": "jira_delete_issue"},
+    {"name": "jira_add_labels"},
+    {"name": "jira_remove_labels"},
+    {"name": "jira_list_transitions"},
+    {"name": "jira_transition_issue"},
+    {"name": "jira_add_comment"},
+    {"name": "jira_list_comments"},
+    {"name": "jira_update_comment"},
+    {"name": "jira_delete_comment"},
+    {"name": "jira_assign_issue"},
+    {"name": "jira_create_subtask"},
+    {"name": "jira_link_issues"},
+    {"name": "jira_list_link_types"},
+    {"name": "jira_delete_issue_link"},
+    {"name": "jira_remote_link"},
+    {"name": "jira_add_watcher"},
+    {"name": "jira_remove_watcher"},
+    {"name": "jira_list_watchers"},
+    {"name": "jira_log_work"},
+    {"name": "jira_list_worklogs"},
+    {"name": "jira_list_projects"},
+    {"name": "jira_list_issue_types"},
+    {"name": "jira_list_fields"},
+    {"name": "jira_get_create_meta"},
+    {"name": "jira_get_edit_meta"},
+    {"name": "jira_list_boards"},
+    {"name": "jira_list_sprints"},
+    {"name": "jira_move_to_sprint"},
+    {"name": "jira_attach_file"},
+    {"name": "jira_raw_request"}
+  ],
+  "compatibility": {
+    "runtimes": {
+      "node": ">=20"
+    }
+  }
+}

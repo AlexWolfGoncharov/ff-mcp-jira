@@ -1,0 +1,9 @@
+.git
+.github
+.env
+.env.example
+.gitignore
+.npmignore
+smoke.js
+_demo_in54976.js
+*.mcpb

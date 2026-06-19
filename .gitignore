@@ -5,3 +5,6 @@ node_modules
 *.bak-*
 .DS_Store
 _demo_*.js
+
+# MCP bundle build artifact
+*.mcpb
