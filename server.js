@@ -243,6 +243,34 @@ server.registerTool(
 );
 
 server.registerTool(
+  'jira_find_users',
+  {
+    title: 'Find users',
+    description:
+      'Search users by name/username/email. Use to resolve a handle to an assignee/watcher value (username on Server, accountId on Cloud). Returns the value to feed into jira_assign_issue / jira_create_issue.',
+    inputSchema: {
+      query: z.string().describe('Name, username, or email fragment'),
+      maxResults: z.number().int().positive().optional().describe('1..100, default 25'),
+    },
+  },
+  wrap(async ({ query, maxResults }) => {
+    // Server/DC takes `username`; Cloud takes `query`. ponytail: one param per auth mode, no fallback chasing.
+    const q = jira.authMode === 'basic' ? { query } : { username: query };
+    const data = await jira.request('user/search', { query: { ...q, maxResults: clampMax(maxResults) } });
+    const users = (Array.isArray(data) ? data : []).map((u) => ({
+      name: u.name,
+      key: u.key,
+      accountId: u.accountId,
+      displayName: u.displayName,
+      email: u.emailAddress,
+      active: u.active,
+      assignValue: jira.authMode === 'basic' ? u.accountId : u.name,
+    }));
+    return ok({ count: users.length, users });
+  })
+);
+
+server.registerTool(
   'jira_search',
   {
     title: 'Search issues by JQL',
@@ -716,6 +744,285 @@ server.registerTool(
   wrap(async ({ method, endpoint, body, query }) => {
     const data = await jira.request(endpoint, { method, body, query });
     return ok(data);
+  })
+);
+
+// ---------- discovery: fields & create metadata ----------
+server.registerTool(
+  'jira_list_fields',
+  {
+    title: 'List fields',
+    description:
+      'List all fields (system + custom). Use to resolve a customfield_NNNNN id ↔ human name before setting it in jira_create_issue / jira_update_issue.',
+    inputSchema: { query: z.string().optional().describe('Optional substring filter on id/name, applied client-side') },
+  },
+  wrap(async ({ query }) => {
+    const data = await jira.request('field');
+    let items = (Array.isArray(data) ? data : []).map((f) => ({
+      id: f.id,
+      name: f.name,
+      custom: !!f.custom,
+      type: f.schema?.type,
+      items: f.schema?.items,
+    }));
+    if (query) {
+      const q = query.toLowerCase();
+      items = items.filter((f) => (f.id + ' ' + f.name).toLowerCase().includes(q));
+    }
+    return ok({ count: items.length, fields: items });
+  })
+);
+
+server.registerTool(
+  'jira_get_create_meta',
+  {
+    title: 'Get create metadata',
+    description:
+      'Discover fields for creating an issue. Without issueType, lists the project\'s issue types — pass one back to get its required/allowed fields (with field ids) for jira_create_issue.',
+    inputSchema: {
+      project: z.string().describe('Project key'),
+      issueType: z.string().optional().describe('Issue type name — omit to just list the available types'),
+    },
+  },
+  // ponytail: uses the split createmeta endpoint (Jira DC 8.4+ / Cloud); the classic /issue/createmeta?projectKeys was removed there.
+  wrap(async ({ project, issueType }) => {
+    const typesData = await jira.request(`issue/createmeta/${encodeURIComponent(project)}/issuetypes`, {
+      query: { maxResults: 200 },
+    });
+    const types = (typesData.values || []).map((t) => ({ id: t.id, name: t.name, subtask: t.subtask }));
+    if (!issueType) {
+      return ok({ project, issueTypes: types, note: 'Pass issueType to get its fields.' });
+    }
+    const match = types.find((t) => t.name.toLowerCase() === issueType.toLowerCase());
+    if (!match) throw new Error(`No issue type "${issueType}" in ${project}. Available: ${types.map((t) => t.name).join(', ')}`);
+    const fieldsData = await jira.request(`issue/createmeta/${encodeURIComponent(project)}/issuetypes/${match.id}`, {
+      query: { maxResults: 200 },
+    });
+    const fields = (fieldsData.values || []).map((f) => {
+      const out = { key: f.fieldId, name: f.name, required: !!f.required, type: f.schema?.type };
+      if (Array.isArray(f.allowedValues) && f.allowedValues.length) {
+        out.allowedValues = f.allowedValues.slice(0, 50).map((v) => v.name || v.value || v.key || v.id);
+        if (f.allowedValues.length > 50) out.allowedValuesTruncated = f.allowedValues.length;
+      }
+      return out;
+    });
+    return ok({ project, issueType: match.name, fields });
+  })
+);
+
+server.registerTool(
+  'jira_get_edit_meta',
+  {
+    title: 'Get edit metadata',
+    description: 'Discover which fields can be edited on an existing issue, with allowed values. Mirror of jira_get_create_meta for updates.',
+    inputSchema: { issueKey: z.string() },
+  },
+  wrap(async ({ issueKey }) => {
+    const data = await jira.request(`issue/${encodeURIComponent(issueKey)}/editmeta`);
+    const fields = Object.entries(data.fields || {}).map(([key, f]) => {
+      const out = { key, name: f.name, required: !!f.required, type: f.schema?.type, operations: f.operations };
+      if (Array.isArray(f.allowedValues) && f.allowedValues.length) {
+        out.allowedValues = f.allowedValues.slice(0, 50).map((v) => v.name || v.value || v.key || v.id);
+        if (f.allowedValues.length > 50) out.allowedValuesTruncated = f.allowedValues.length;
+      }
+      return out;
+    });
+    return ok({ key: issueKey, fields });
+  })
+);
+
+// ---------- agile: boards & sprints ----------
+server.registerTool(
+  'jira_list_boards',
+  {
+    title: 'List boards',
+    description: 'List agile boards. Filter by project or name. Use a board id with jira_list_sprints.',
+    inputSchema: {
+      projectKeyOrId: z.string().optional(),
+      name: z.string().optional().describe('Substring match on board name'),
+      maxResults: z.number().int().positive().optional(),
+    },
+  },
+  wrap(async ({ projectKeyOrId, name, maxResults }) => {
+    const query = { maxResults: clampMax(maxResults) };
+    if (projectKeyOrId) query.projectKeyOrId = projectKeyOrId;
+    if (name) query.name = name;
+    const data = await jira.request('board', { api: 'rest/agile/1.0', query });
+    return ok({
+      total: data.total,
+      boards: (data.values || []).map((b) => ({ id: b.id, name: b.name, type: b.type })),
+    });
+  })
+);
+
+server.registerTool(
+  'jira_list_sprints',
+  {
+    title: 'List sprints',
+    description: 'List sprints on a board. Defaults to active+future (the "next sprint" lives here). Use a sprint id with jira_move_to_sprint.',
+    inputSchema: {
+      boardId: z.number().int().positive(),
+      state: z.string().optional().describe('Comma list: active,future,closed. Default "active,future".'),
+      maxResults: z.number().int().positive().optional(),
+    },
+  },
+  wrap(async ({ boardId, state, maxResults }) => {
+    const data = await jira.request(`board/${boardId}/sprint`, {
+      api: 'rest/agile/1.0',
+      query: { state: state || 'active,future', maxResults: clampMax(maxResults) },
+    });
+    return ok({
+      total: data.total,
+      sprints: (data.values || []).map((s) => ({
+        id: s.id,
+        name: s.name,
+        state: s.state,
+        startDate: s.startDate,
+        endDate: s.endDate,
+      })),
+    });
+  })
+);
+
+server.registerTool(
+  'jira_move_to_sprint',
+  {
+    title: 'Move issues to sprint',
+    description: 'Move one or more issues into a sprint (by sprint id from jira_list_sprints).',
+    inputSchema: { sprintId: z.number().int().positive(), issueKeys: z.array(z.string()).min(1) },
+  },
+  wrap(async ({ sprintId, issueKeys }) => {
+    await jira.request(`sprint/${sprintId}/issue`, { api: 'rest/agile/1.0', method: 'POST', body: { issues: issueKeys } });
+    return ok({ sprintId, moved: issueKeys });
+  })
+);
+
+// ---------- assignable users ----------
+server.registerTool(
+  'jira_find_assignable_users',
+  {
+    title: 'Find assignable users',
+    description:
+      'Search users who can be ASSIGNED in a project (stricter than jira_find_users). Returns assignValue ready for jira_assign_issue / jira_create_issue.',
+    inputSchema: {
+      query: z.string().describe('Name/username/email fragment'),
+      project: z.string().describe('Project key'),
+      issueKey: z.string().optional().describe('Narrow to who can be assigned on this specific issue'),
+      maxResults: z.number().int().positive().optional(),
+    },
+  },
+  wrap(async ({ query, project, issueKey, maxResults }) => {
+    const q = jira.authMode === 'basic' ? { query } : { username: query };
+    const params = { ...q, project, maxResults: clampMax(maxResults) };
+    if (issueKey) params.issueKey = issueKey;
+    const data = await jira.request('user/assignable/search', { query: params });
+    const users = (Array.isArray(data) ? data : []).map((u) => ({
+      name: u.name,
+      accountId: u.accountId,
+      displayName: u.displayName,
+      email: u.emailAddress,
+      active: u.active,
+      assignValue: jira.authMode === 'basic' ? u.accountId : u.name,
+    }));
+    return ok({ count: users.length, users });
+  })
+);
+
+// ---------- remote links, link & issue deletion ----------
+server.registerTool(
+  'jira_remote_link',
+  {
+    title: 'Add remote link',
+    description: 'Attach a remote/web link (e.g. a Confluence BRD page) to an issue — a real remote link, not a URL in the body.',
+    inputSchema: {
+      issueKey: z.string(),
+      url: z.string().describe('Target URL'),
+      title: z.string().describe('Link title shown on the issue'),
+      summary: z.string().optional(),
+    },
+  },
+  wrap(async ({ issueKey, url, title, summary }) => {
+    const object = { url, title };
+    if (summary) object.summary = summary;
+    const data = await jira.request(`issue/${encodeURIComponent(issueKey)}/remotelink`, { method: 'POST', body: { object } });
+    return ok({ key: issueKey, id: data.id, url, title });
+  })
+);
+
+server.registerTool(
+  'jira_delete_issue_link',
+  {
+    title: 'Delete issue link',
+    description: 'Remove an issue link by its id (find ids via jira_get_issue → issuelinks[].id).',
+    inputSchema: { linkId: z.string() },
+  },
+  wrap(async ({ linkId }) => {
+    await jira.request(`issueLink/${encodeURIComponent(linkId)}`, { method: 'DELETE' });
+    return ok({ deletedLinkId: linkId });
+  })
+);
+
+server.registerTool(
+  'jira_delete_issue',
+  {
+    title: 'Delete issue',
+    description: 'Delete an issue. Destructive and irreversible. Set deleteSubtasks=true to also remove its subtasks (required by Jira if any exist).',
+    inputSchema: {
+      issueKey: z.string(),
+      deleteSubtasks: z.boolean().optional(),
+    },
+  },
+  wrap(async ({ issueKey, deleteSubtasks }) => {
+    const query = deleteSubtasks === undefined ? undefined : { deleteSubtasks: String(deleteSubtasks) };
+    await jira.request(`issue/${encodeURIComponent(issueKey)}`, { method: 'DELETE', query });
+    return ok({ deleted: issueKey });
+  })
+);
+
+// ---------- watchers list & comment edit/delete ----------
+server.registerTool(
+  'jira_list_watchers',
+  {
+    title: 'List watchers',
+    description: 'List watchers on an issue.',
+    inputSchema: { issueKey: z.string() },
+  },
+  wrap(async ({ issueKey }) => {
+    const data = await jira.request(`issue/${encodeURIComponent(issueKey)}/watchers`);
+    return ok({
+      watchCount: data.watchCount,
+      watchers: (data.watchers || []).map((w) => ({ name: w.name, accountId: w.accountId, displayName: w.displayName })),
+    });
+  })
+);
+
+server.registerTool(
+  'jira_update_comment',
+  {
+    title: 'Update comment',
+    description: 'Edit an existing comment by id. Plain text is auto-wrapped to ADF on Cloud v3.',
+    inputSchema: { issueKey: z.string(), commentId: z.string(), body: z.union([z.string(), z.record(z.any())]) },
+  },
+  wrap(async ({ issueKey, commentId, body }) => {
+    const payload = { body: jira.needsADF() ? jira.toADF(body) : body };
+    const data = await jira.request(`issue/${encodeURIComponent(issueKey)}/comment/${encodeURIComponent(commentId)}`, {
+      method: 'PUT',
+      body: payload,
+    });
+    return ok({ id: data.id, updated: data.updated });
+  })
+);
+
+server.registerTool(
+  'jira_delete_comment',
+  {
+    title: 'Delete comment',
+    description: 'Delete a comment by id.',
+    inputSchema: { issueKey: z.string(), commentId: z.string() },
+  },
+  wrap(async ({ issueKey, commentId }) => {
+    await jira.request(`issue/${encodeURIComponent(issueKey)}/comment/${encodeURIComponent(commentId)}`, { method: 'DELETE' });
+    return ok({ key: issueKey, deletedComment: commentId });
   })
 );
 

@@ -56,23 +56,35 @@ ff-mcp-jira
 
 The auth mode is auto-detected from the hostname. Force it with `JIRA_AUTH_MODE=basic` or `JIRA_AUTH_MODE=bearer` if needed.
 
-## Tools (23)
+## Tools (37)
 
 | Tool | Purpose |
 | --- | --- |
 | `jira_get_myself` | Auth smoke test — returns current user |
+| `jira_find_users` | Search users → resolve a handle to an assignee/watcher value |
+| `jira_find_assignable_users` | Search users assignable in a project (stricter than `jira_find_users`) |
 | `jira_search` | JQL search with lean default `fields` and 25-result cap |
 | `jira_get_issue` | Fetch one issue with configurable fields/expand |
 | `jira_create_issue` | Create issue. Generic `fields` passthrough for any custom field |
 | `jira_update_issue` | Update issue. Generic `fields` + `update` ops. Convenience args for summary, description, assignee, priority, labels |
+| `jira_delete_issue` | Delete an issue (optionally its subtasks) — destructive |
+| `jira_list_fields` | List system + custom fields — resolve `customfield_NNNNN` ↔ name |
+| `jira_get_create_meta` | Required/allowed fields for create, per project + issue type |
+| `jira_get_edit_meta` | Editable fields + allowed values for an existing issue |
 | `jira_add_labels` / `jira_remove_labels` | Add/remove labels without overwriting |
 | `jira_list_transitions` | List available workflow transitions |
 | `jira_transition_issue` | Transition by id or by name (case-insensitive) |
 | `jira_add_comment` / `jira_list_comments` | Comments — ADF auto-wrapping on Cloud v3 |
+| `jira_update_comment` / `jira_delete_comment` | Edit / remove a comment by id |
 | `jira_assign_issue` | Set / clear / auto-assign |
 | `jira_create_subtask` | Subtask under a parent (auto-detects parent's project) |
 | `jira_link_issues` / `jira_list_link_types` | Issue linking |
-| `jira_add_watcher` / `jira_remove_watcher` | Watchers |
+| `jira_delete_issue_link` | Remove an issue link by id |
+| `jira_remote_link` | Attach a remote/web link (e.g. a Confluence page) |
+| `jira_list_boards` | List agile boards |
+| `jira_list_sprints` | List sprints on a board (active + future by default) |
+| `jira_move_to_sprint` | Move issues into a sprint |
+| `jira_add_watcher` / `jira_remove_watcher` / `jira_list_watchers` | Watchers |
 | `jira_log_work` / `jira_list_worklogs` | Worklog |
 | `jira_list_projects` / `jira_list_issue_types` | Discovery |
 | `jira_attach_file` | Upload a local file |

@@ -1,7 +1,7 @@
 {
   "name": "ff-mcp-jira",
-  "version": "1.0.0",
-  "description": "Reliable Jira MCP server (Server/DC & Atlassian Cloud). 23 tools, full label/transition/worklog/link/watcher/attach support, body-in-error reporting, fields trimming, retries.",
+  "version": "1.1.0",
+  "description": "Reliable Jira MCP server (Server/DC & Atlassian Cloud). 37 tools — issues, labels, transitions, comments, worklog, links, remote links, watchers, attachments, user/assignable search, field & create metadata, agile boards/sprints; body-in-error reporting, fields trimming, retries.",
   "type": "module",
   "bin": {
     "ff-mcp-jira": "server.js"
