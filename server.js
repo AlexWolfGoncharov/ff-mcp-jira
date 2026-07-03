@@ -330,13 +330,13 @@ server.registerTool(
   {
     title: 'Create issue',
     description:
-      'Create an issue. Always pass `project` (key) and `issueType` (name). Optional fields (labels, components, fixVersions, customfield_*, etc.) go through `fields`. `description` accepts plain text and is auto-converted to ADF on Cloud v3.',
+      'Create an issue. Always pass `project` (key) and `issueType` (name). Optional fields (labels, components, fixVersions, customfield_*, etc.) go through `fields`. `description` accepts plain text and is auto-converted to ADF on Cloud v3. Server/DC value formats: Sprint customfield takes a NUMERIC sprint id (from jira_list_sprints), Epic Link takes the epic issue key string (e.g. "KG-58"), assignee is the exact username — usernames are NOT derivable from email (resolve via jira_find_assignable_users first). Prefer setting everything in this single create call.',
     inputSchema: {
       project: z.string(),
       issueType: z.string(),
       summary: z.string(),
       description: z.union([z.string(), z.record(z.any())]).optional(),
-      assignee: z.string().optional().describe('username (Server) or accountId (Cloud)'),
+      assignee: z.string().optional().describe('Exact username (Server — not derivable from email, resolve via jira_find_assignable_users) or accountId (Cloud)'),
       priority: z.string().optional(),
       labels: z.array(z.string()).optional(),
       components: z.array(z.string()).optional(),
@@ -372,7 +372,7 @@ server.registerTool(
   {
     title: 'Update issue',
     description:
-      'Update an issue. Pass `fields` for absolute values OR `update` for ops (`add`/`remove`/`set`). Convenience shortcuts: `labels`, `assignee`, `priority`, `summary`, `description`.',
+      'Update an issue. Pass `fields` for absolute values OR `update` for ops (`add`/`remove`/`set`). Convenience shortcuts: `labels`, `assignee`, `priority`, `summary`, `description`. Server/DC value formats: Sprint customfield = NUMERIC sprint id (jira_list_sprints), Epic Link = epic issue key string, assignee = exact username (resolve via jira_find_assignable_users — not derivable from email).',
     inputSchema: {
       issueKey: z.string(),
       summary: z.string().optional(),

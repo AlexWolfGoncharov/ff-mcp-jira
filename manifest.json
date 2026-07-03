@@ -3,7 +3,7 @@
   "manifest_version": "0.3",
   "name": "ff-mcp-jira",
   "display_name": "Jira (ff-mcp-jira)",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Connects Claude to Fintech Farm Jira (https://jira.fintech-farm.com, also Atlassian Cloud). 37 tools: JQL search, issue create/update/delete, labels, transitions, comments, assignment, subtasks, issue & remote links, watchers, worklogs, sprints/boards, field & create metadata, user search, attachments, raw API.",
   "long_description": "Connects Claude Desktop to Fintech Farm Jira (Server/DC at https://jira.fintech-farm.com, also compatible with Atlassian Cloud). Supports JQL search, issue create/update/delete, labels, transitions, comments (add/edit/delete), assignment, subtasks, issue links and remote links, watchers, worklogs, projects, issue types, field/create/edit metadata discovery, user and assignable-user search, agile boards and sprints (including move-to-sprint), attachments and raw API requests.\n\nTo get an API token: open https://jira.fintech-farm.com/secure/ViewProfile.jspa?selectedTab=com.atlassian.pats.pats-plugin:jira-user-personal-access-tokens, click \"Create token\", and copy it immediately.\n\nDeveloped by Oleksandr Honcharov.",
   "author": {
@@ -18,13 +18,21 @@
   "documentation": "https://github.com/AlexWolfGoncharov/ff-mcp-jira#readme",
   "support": "https://github.com/AlexWolfGoncharov/ff-mcp-jira/issues",
   "license": "MIT",
-  "keywords": ["jira", "atlassian", "jira-server", "jira-cloud", "jira-data-center"],
+  "keywords": [
+    "jira",
+    "atlassian",
+    "jira-server",
+    "jira-cloud",
+    "jira-data-center"
+  ],
   "server": {
     "type": "node",
     "entry_point": "server.js",
     "mcp_config": {
       "command": "node",
-      "args": ["${__dirname}/server.js"],
+      "args": [
+        "${__dirname}/server.js"
+      ],
       "env": {
         "JIRA_BASE_URL": "${user_config.jira_base_url}",
         "JIRA_API_TOKEN": "${user_config.jira_api_token}",
@@ -43,7 +51,7 @@
     "jira_api_token": {
       "type": "string",
       "title": "API token / Personal Access Token",
-      "description": "Create at jira.fintech-farm.com → Profile → Personal Access Tokens → Create token, then copy it immediately. (On Atlassian Cloud, use an API token instead.)",
+      "description": "Create at jira.fintech-farm.com \u2192 Profile \u2192 Personal Access Tokens \u2192 Create token, then copy it immediately. (On Atlassian Cloud, use an API token instead.)",
       "required": true,
       "sensitive": true
     },
@@ -55,46 +63,124 @@
     }
   },
   "tools": [
-    {"name": "jira_get_myself"},
-    {"name": "jira_find_users"},
-    {"name": "jira_find_assignable_users"},
-    {"name": "jira_search"},
-    {"name": "jira_get_issue"},
-    {"name": "jira_create_issue"},
-    {"name": "jira_update_issue"},
-    {"name": "jira_delete_issue"},
-    {"name": "jira_add_labels"},
-    {"name": "jira_remove_labels"},
-    {"name": "jira_list_transitions"},
-    {"name": "jira_transition_issue"},
-    {"name": "jira_add_comment"},
-    {"name": "jira_list_comments"},
-    {"name": "jira_update_comment"},
-    {"name": "jira_delete_comment"},
-    {"name": "jira_assign_issue"},
-    {"name": "jira_create_subtask"},
-    {"name": "jira_link_issues"},
-    {"name": "jira_list_link_types"},
-    {"name": "jira_delete_issue_link"},
-    {"name": "jira_remote_link"},
-    {"name": "jira_add_watcher"},
-    {"name": "jira_remove_watcher"},
-    {"name": "jira_list_watchers"},
-    {"name": "jira_log_work"},
-    {"name": "jira_list_worklogs"},
-    {"name": "jira_list_projects"},
-    {"name": "jira_list_issue_types"},
-    {"name": "jira_list_fields"},
-    {"name": "jira_get_create_meta"},
-    {"name": "jira_get_edit_meta"},
-    {"name": "jira_list_boards"},
-    {"name": "jira_list_sprints"},
-    {"name": "jira_move_to_sprint"},
-    {"name": "jira_attach_file"},
-    {"name": "jira_raw_request"}
+    {
+      "name": "jira_get_myself"
+    },
+    {
+      "name": "jira_find_users"
+    },
+    {
+      "name": "jira_find_assignable_users"
+    },
+    {
+      "name": "jira_search"
+    },
+    {
+      "name": "jira_get_issue"
+    },
+    {
+      "name": "jira_create_issue"
+    },
+    {
+      "name": "jira_update_issue"
+    },
+    {
+      "name": "jira_delete_issue"
+    },
+    {
+      "name": "jira_add_labels"
+    },
+    {
+      "name": "jira_remove_labels"
+    },
+    {
+      "name": "jira_list_transitions"
+    },
+    {
+      "name": "jira_transition_issue"
+    },
+    {
+      "name": "jira_add_comment"
+    },
+    {
+      "name": "jira_list_comments"
+    },
+    {
+      "name": "jira_update_comment"
+    },
+    {
+      "name": "jira_delete_comment"
+    },
+    {
+      "name": "jira_assign_issue"
+    },
+    {
+      "name": "jira_create_subtask"
+    },
+    {
+      "name": "jira_link_issues"
+    },
+    {
+      "name": "jira_list_link_types"
+    },
+    {
+      "name": "jira_delete_issue_link"
+    },
+    {
+      "name": "jira_remote_link"
+    },
+    {
+      "name": "jira_add_watcher"
+    },
+    {
+      "name": "jira_remove_watcher"
+    },
+    {
+      "name": "jira_list_watchers"
+    },
+    {
+      "name": "jira_log_work"
+    },
+    {
+      "name": "jira_list_worklogs"
+    },
+    {
+      "name": "jira_list_projects"
+    },
+    {
+      "name": "jira_list_issue_types"
+    },
+    {
+      "name": "jira_list_fields"
+    },
+    {
+      "name": "jira_get_create_meta"
+    },
+    {
+      "name": "jira_get_edit_meta"
+    },
+    {
+      "name": "jira_list_boards"
+    },
+    {
+      "name": "jira_list_sprints"
+    },
+    {
+      "name": "jira_move_to_sprint"
+    },
+    {
+      "name": "jira_attach_file"
+    },
+    {
+      "name": "jira_raw_request"
+    }
   ],
   "compatibility": {
-    "platforms": ["darwin", "win32", "linux"],
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ],
     "runtimes": {
       "node": ">=20"
     }
