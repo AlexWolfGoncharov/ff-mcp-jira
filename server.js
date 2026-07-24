@@ -42,6 +42,18 @@ class JiraError extends Error {
   }
 }
 
+// Thrown when a non-idempotent write (create/transition/link/...) hits a network
+// error or timeout. The server MAY have already applied it, so the caller must
+// verify current state before re-issuing — never blindly retry (that made 5 dup KG issues).
+class JiraWriteUncertain extends Error {
+  constructor(method, endpoint, cause) {
+    super(`WRITE_OUTCOME_UNKNOWN: ${method} ${endpoint} failed with a network/timeout error, but the write may already be applied on the server. Do NOT retry blindly — verify current state (search/get) first, then re-issue only if missing. Cause: ${cause?.message || cause}`);
+    this.name = 'JiraWriteUncertain';
+    this.code = 'WRITE_OUTCOME_UNKNOWN';
+    this.cause = cause;
+  }
+}
+
 class JiraClient {
   constructor() {
     const raw = process.env.JIRA_BASE_URL;
@@ -83,7 +95,11 @@ class JiraClient {
     return `${this.baseUrl}/${api}/${clean}`;
   }
 
-  async request(endpoint, { method = 'GET', body, query, headers = {}, api, raw = false } = {}) {
+  async request(endpoint, { method = 'GET', body, query, headers = {}, api, raw = false, idempotent } = {}) {
+    // Retry network/gateway errors only when the call is safe to repeat. GET is safe by
+    // default; read-only POSTs (search) opt in via idempotent:true. Writes (create/transition/
+    // link/...) never auto-retry — a repeated POST after a slow-but-committed write = duplicates.
+    const canRetryNetwork = idempotent ?? (method === 'GET');
     const u = new URL(this.url(endpoint, { api }));
     if (query) {
       for (const [k, v] of Object.entries(query)) {
@@ -138,7 +154,7 @@ class JiraClient {
         }
 
         if (!res.ok) {
-          if ([429, 502, 503, 504].includes(res.status) && attempt < DEFAULT_RETRIES) {
+          if ([429, 502, 503, 504].includes(res.status) && canRetryNetwork && attempt < DEFAULT_RETRIES) {
             const wait = Math.min(2000 * 2 ** attempt, 8000);
             log('warn', 'retryable error, backing off', { status: res.status, wait });
             await new Promise((r) => setTimeout(r, wait));
@@ -151,12 +167,14 @@ class JiraClient {
         clearTimeout(t);
         if (e instanceof JiraError) throw e;
         lastErr = e;
-        if (attempt < DEFAULT_RETRIES) {
+        if (canRetryNetwork && attempt < DEFAULT_RETRIES) {
           const wait = Math.min(1000 * 2 ** attempt, 5000);
           log('warn', 'network error, backing off', { err: e.message, wait });
           await new Promise((r) => setTimeout(r, wait));
           continue;
         }
+        // Non-idempotent write failed on the network — outcome is unknown, don't retry.
+        if (!canRetryNetwork) throw new JiraWriteUncertain(method, endpoint, e);
         throw e;
       }
     }
@@ -207,6 +225,9 @@ function wrap(fn) {
       log('error', 'tool failed', { msg: e.message, stack: e.stack?.split('\n').slice(0, 3).join(' | ') });
       if (e instanceof JiraError) {
         return err(`Jira error ${e.status}`, e.body);
+      }
+      if (e instanceof JiraWriteUncertain) {
+        return err(e.message);
       }
       return err(e.message || 'Unknown error');
     }
@@ -292,7 +313,7 @@ server.registerTool(
       fields: fields && fields.length ? fields : DEFAULT_SEARCH_FIELDS,
     };
     if (expand?.length) body.expand = expand;
-    const data = await jira.request('search', { method: 'POST', body });
+    const data = await jira.request('search', { method: 'POST', body, idempotent: true });
     const slim = (data.issues || []).map((i) => ({ key: i.key, id: i.id, fields: i.fields }));
     return ok({
       total: data.total,
@@ -1034,7 +1055,12 @@ async function main() {
   log('info', 'Connected to MCP client over stdio');
 }
 
-main().catch((e) => {
-  log('error', 'Server crashed', { msg: e.message, stack: e.stack });
-  process.exit(1);
-});
+// Only boot the stdio server when run directly — importing (e.g. from a test) must not connect.
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main().catch((e) => {
+    log('error', 'Server crashed', { msg: e.message, stack: e.stack });
+    process.exit(1);
+  });
+}
+
+export { JiraClient, JiraWriteUncertain, JiraError };
