@@ -7,6 +7,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod';
 import fs from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 // ---------- logging (stderr only) ----------
 const LOG_LEVELS = { debug: 10, info: 20, warn: 30, error: 40 };
@@ -1056,7 +1057,10 @@ async function main() {
 }
 
 // Only boot the stdio server when run directly — importing (e.g. from a test) must not connect.
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Compare via realpath: npx runs us through a node_modules/.bin symlink, so argv[1] is the
+// symlink path while import.meta.url is the resolved real path — a bare file:// compare never matches.
+const invokedUrl = pathToFileURL(fs.realpathSync(process.argv[1])).href;
+if (import.meta.url === invokedUrl) {
   main().catch((e) => {
     log('error', 'Server crashed', { msg: e.message, stack: e.stack });
     process.exit(1);
