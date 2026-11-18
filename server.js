@@ -218,6 +218,31 @@ function err(message, details) {
   const text = details ? `${message}\n${typeof details === 'string' ? details : JSON.stringify(details, null, 2)}` : message;
   return { isError: true, content: [{ type: 'text', text }] };
 }
+// ---------- skill gate (FF Jira only) ----------
+// A Story/Task on an FF market project is made by the ff-jira skill (Team, epic, the Roary CR). In Claude Code the
+// ff-product-tools ffgate hook stops a direct create; Claude Desktop chat runs no hooks, so the same stop lives here
+// (Vadym Khodak 17.11.2026). One stop per project + summary per process: the identical resend passes, so a client with
+// no skill is slowed once, never blocked. INF / IAM have no team and no CR.
+const SKILL_GATE_SKIP = new Set(['INF', 'IAM']);
+const SKILL_GATE_SKILLS = new Set(['ff-jira', 'ff-brd']);
+const SKILL_STOP =
+  'skill_required — a Story or Task on FF Jira is created through the ff-jira skill (/ff-jira; /ff-brd hands over to it): ' +
+  'it sets Team, epic, Change/Support and the Roary change request that the roadmap and AI-Dev need. Run the ff-jira skill ' +
+  'with what you have (the request, BRD link); it passes via_skill: "ff-jira". Bugs: ff-bug. If no ff-jira skill is ' +
+  'available here, send this same call again unchanged and tell the author the task has no Roary CR yet.';
+const skillStops = new Set();
+function skillStop(baseUrl, project, issueType, viaSkill, summary) {
+  if (!/(^|\.)fintech-farm\.com$/i.test(new URL(baseUrl).hostname)) return null;
+  const proj = String(project || '').toUpperCase();
+  if (SKILL_GATE_SKIP.has(proj)) return null;
+  if (!/^(story|task)$/i.test(String(issueType || '').trim())) return null;
+  if (SKILL_GATE_SKILLS.has(String(viaSkill || '').trim().toLowerCase())) return null;
+  const mark = `${proj}|${String(summary || '').trim().toLowerCase()}`;
+  if (skillStops.has(mark)) return null;
+  skillStops.add(mark);
+  return SKILL_STOP;
+}
+
 function wrap(fn) {
   return async (args) => {
     try {
@@ -364,9 +389,12 @@ server.registerTool(
       components: z.array(z.string()).optional(),
       parentKey: z.string().optional().describe('Set parent key when creating a subtask'),
       fields: z.record(z.any()).optional().describe('Any extra fields, merged last (wins on conflict).'),
+      via_skill: z.string().optional().describe('Set only by the skill that makes the call: "ff-jira" or "ff-brd".'),
     },
   },
-  wrap(async ({ project, issueType, summary, description, assignee, priority, labels, components, parentKey, fields }) => {
+  wrap(async ({ project, issueType, summary, description, assignee, priority, labels, components, parentKey, fields, via_skill }) => {
+    const stop = skillStop(jira.baseUrl, project, fields?.issuetype?.name ?? issueType, via_skill, summary);
+    if (stop) return err(stop);
     const out = {
       project: { key: project },
       issuetype: { name: issueType },
@@ -761,9 +789,15 @@ server.registerTool(
       endpoint: z.string(),
       body: z.any().optional(),
       query: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
+      via_skill: z.string().optional().describe('Set only by the skill that makes the call: "ff-jira" or "ff-brd".'),
     },
   },
-  wrap(async ({ method, endpoint, body, query }) => {
+  wrap(async ({ method, endpoint, body, query, via_skill }) => {
+    if (method === 'POST' && /(^|\/)issue\/?$/.test(endpoint.split('?')[0]) && !/agile\//.test(endpoint)) {
+      const f = (body && body.fields) || {};
+      const stop = skillStop(jira.baseUrl, f.project?.key, f.issuetype?.name, via_skill, f.summary);
+      if (stop) return err(stop);
+    }
     const data = await jira.request(endpoint, { method, body, query });
     return ok(data);
   })
@@ -1067,4 +1101,4 @@ if (import.meta.url === invokedUrl) {
   });
 }
 
-export { JiraClient, JiraWriteUncertain, JiraError };
+export { JiraClient, JiraWriteUncertain, JiraError, skillStop };
